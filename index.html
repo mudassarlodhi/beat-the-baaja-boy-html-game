@@ -1,0 +1,53 @@
+    function handleInteraction(clientX, clientY) {
+      const pos = getVirtualCoords(clientX, clientY);
+      if (isOverBike(pos.x, pos.y)) {
+        slapBike();
+      } else if (isOverBoy(pos.x, pos.y)) {
+        slapBoy();
+      }
+    }
+
+    canvas.addEventListener('mousedown', (e) => handleInteraction(e.clientX, e.clientY));
+    canvas.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      const touch = e.touches[0];
+      handleInteraction(touch.clientX, touch.clientY);
+    }, { passive: false });
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') slapBoy();
+    });
+
+    function copyShareLink() {
+      const shareText = `I silenced the 14th August Baja Boy 10 times! 🇵🇰 Try it here: ${window.location.href}`;
+      navigator.clipboard.writeText(shareText).then(() => {
+        alert("Challenge copied to clipboard!");
+      });
+    }
+
+    // Main Game Loop
+    function renderFrame() {
+      animationTime++;
+      updateBoyState();
+      updateBikeState();
+
+      ctx.fillStyle = COLORS.SKY;
+      ctx.fillRect(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
+
+      drawPixelCloud(20, 18);
+      drawPixelCloud(160, 12);
+      drawPixelCloud(260, 25);
+      
+      drawGround();
+      drawWavingFlag(animationTime);
+      drawBajaBoy();
+      drawMasairBike();
+      drawHUD();
+
+      requestAnimationFrame(renderFrame);
+    }
+
+    renderFrame();
+  </script>
+</body>
+</html>
