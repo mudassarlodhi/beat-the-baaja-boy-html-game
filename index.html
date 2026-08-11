@@ -1,3 +1,703 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Happy 79th Independence Day Pakistan - Slap the Baja!</title>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    body, html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #5c94fc;
+      font-family: 'Press Start 2P', monospace;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      touch-action: manipulation;
+    }
+
+    #game-container {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      max-width: 900px;
+      max-height: 720px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      padding: 15px;
+      background-color: #5c94fc;
+    }
+
+    .retro-header {
+      width: 100%;
+      text-align: center;
+      color: #FFFFFF;
+      z-index: 10;
+      position: relative;
+    }
+
+    .retro-header h1 {
+      font-size: clamp(12px, 2.2vw, 20px);
+      color: #F8D800;
+      margin-bottom: 6px;
+      letter-spacing: 2px;
+    }
+
+    .retro-header p {
+      font-size: clamp(8px, 1.3vw, 12px);
+      color: #FFFFFF;
+      margin-top: 3px;
+    }
+
+    .retro-header .anniversary-text {
+      color: #00FF66;
+      font-size: clamp(9px, 1.4vw, 13px);
+      margin-top: 5px;
+    }
+
+    /* Sound Mute Toggle Button */
+    #sound-toggle {
+      position: absolute;
+      top: 0;
+      right: 10px;
+      background: #000;
+      color: #FFF;
+      border: 2px solid #FFF;
+      padding: 6px 10px;
+      font-family: 'Press Start 2P', monospace;
+      font-size: 10px;
+      cursor: pointer;
+    }
+
+    canvas {
+      width: 100%;
+      height: calc(100% - 140px);
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+      cursor: default;
+    }
+
+    canvas.hover-boy {
+      cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><text y="20" font-size="20">👋</text></svg>') 16 16, pointer;
+    }
+
+    .retro-footer {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      color: #FFF;
+      font-size: clamp(7px, 1.1vw, 10px);
+      z-index: 10;
+      text-align: center;
+    }
+
+    /* Share Button */
+    .share-btn {
+      background-color: #F8D800;
+      color: #000;
+      border: 2px solid #000;
+      padding: 8px 14px;
+      font-family: 'Press Start 2P', monospace;
+      font-size: 9px;
+      cursor: pointer;
+      box-shadow: 3px 3px 0px #000;
+    }
+
+    .share-btn:active {
+      box-shadow: 1px 1px 0px #000;
+      transform: translate(2px, 2px);
+    }
+  </style>
+</head>
+<body>
+
+  <div id="game-container">
+    <header class="retro-header">
+      <button id="sound-toggle">🔊 ON</button>
+      <h1>HAPPY INDEPENDENCE DAY</h1>
+      <p>★ PAKISTAN • 14th AUGUST 2026 ★</p>
+      <p class="anniversary-text">79th YEAR OF INDEPENDENCE (1947 - 2026)</p>
+    </header>
+
+    <canvas id="stage"></canvas>
+
+    <footer class="retro-footer">
+      <p id="instruction-text">TAP THE BAJA BOY 10 TIMES TO SILENCE HIM!</p>
+      <button class="share-btn" onclick="copyShareLink()">📋 CHALLENGE A FRIEND</button>
+    </footer>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('stage');
+    const ctx = canvas.getContext('2d');
+
+    const VIRTUAL_WIDTH = 320;
+    const VIRTUAL_HEIGHT = 200;
+
+    canvas.width = VIRTUAL_WIDTH;
+    canvas.height = VIRTUAL_HEIGHT;
+    ctx.imageSmoothingEnabled = false;
+
+    const COLORS = {
+      SKY: '#5c94fc',
+      DARK_GREEN: '#004018',
+      WHITE: '#FFFFFF',
+      POLE: '#888888',
+      CLOUD: '#FCFCFC',
+      BUSH_GREEN: '#00A800',
+      BOY_SKIN: '#FFCC99',
+      BOY_SHIRT: '#D82800', 
+      BOY_ANGRY_SHIRT: '#A00000',
+      BAJA_PLASTIC: '#FC9838'
+    };
+
+    let animationTime = 0;
+    let isMuted = false;
+
+    // Sound Toggle Logic
+    const soundBtn = document.getElementById('sound-toggle');
+    soundBtn.addEventListener('click', () => {
+      isMuted = !isMuted;
+      soundBtn.innerText = isMuted ? "🔇 OFF" : "🔊 ON";
+      setBajaSound(!isMuted && totalSlaps < 10);
+    });
+
+    // Web Audio API
+    let audioCtx = null;
+    let bajaOscillator = null;
+    let bajaGain = null;
+
+    function initAudio() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        bajaOscillator = audioCtx.createOscillator();
+        bajaGain = audioCtx.createGain();
+
+        bajaOscillator.type = 'sawtooth';
+        bajaOscillator.frequency.value = 220;
+        bajaGain.gain.value = 0;
+
+        bajaOscillator.connect(bajaGain);
+        bajaGain.connect(audioCtx.destination);
+        bajaOscillator.start();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+    }
+
+    function setBajaSound(active) {
+      if (!bajaGain || !audioCtx) return;
+      if (active && !isMuted && totalSlaps < 10) {
+        bajaOscillator.frequency.value = 210 + Math.sin(animationTime * 0.3) * 30;
+        // Lower volume so it doesn't irritate users
+        bajaGain.gain.setTargetAtTime(0.02, audioCtx.currentTime, 0.05);
+      } else {
+        // Muted or inactive
+        bajaGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.01);
+      }
+    }
+
+    function playSlapSound(pitchShift = 1) {
+      if (!audioCtx || isMuted) return;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(400 * pitchShift, audioCtx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(80 * pitchShift, audioCtx.currentTime + 0.1);
+      
+      gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.1);
+    }
+
+    // Original Baja Boy Character Logic
+    let totalSlaps = 0;
+
+    const boy = {
+      x: 20,
+      y: VIRTUAL_HEIGHT - 40,
+      groundY: VIRTUAL_HEIGHT - 40,
+      width: 28,
+      height: 24,
+      speed: 0.8,
+      direction: 1,
+      isSlapped: false,
+      slapTimer: 0,
+      slapTextTimer: 0,
+      slapCount: 0,
+      isJumping: false,
+      jumpVy: 0,
+      angryTextTimer: 0,
+      currentAngryText: "!#@?!!"
+    };
+
+    // Masair Bike Logic (Spawns every 10 seconds alternating sides)
+    let bikeSpawnTimer = 0;
+    let nextBikeSide = 1; // 1 = Left to Right, -1 = Right to Left
+
+    const bike = {
+      active: false,
+      x: -60,
+      y: VIRTUAL_HEIGHT - 44,
+      width: 52,
+      height: 28,
+      speed: 0.9, // Slower speed
+      direction: 1,
+      isWheelie: true,
+      isStopped: false,
+      slapTimer: 0
+    };
+
+    function spawnBike() {
+      bike.active = true;
+      bike.direction = nextBikeSide;
+      bike.isWheelie = true;
+      bike.isStopped = false;
+      bike.slapTimer = 0;
+      bike.x = (bike.direction === 1) ? -60 : VIRTUAL_WIDTH + 10;
+      nextBikeSide *= -1; // Alternate next direction
+    }
+
+    function updateBikeState() {
+      bikeSpawnTimer++;
+      // Every 10 seconds (600 frames at 60fps), spawn bike if not currently active
+      if (bikeSpawnTimer >= 600) {
+        bikeSpawnTimer = 0;
+        if (!bike.active) spawnBike();
+      }
+
+      if (!bike.active) return;
+
+      if (bike.slapTimer > 0) {
+        bike.slapTimer--;
+        if (bike.slapTimer <= 0) {
+          bike.isStopped = false;
+          bike.isWheelie = true; // Returns to wheelie and resumes riding after pause
+        }
+      }
+
+      // Move bike across screen only if NOT stopped
+      if (!bike.isStopped) {
+        bike.x += bike.speed * bike.direction;
+      }
+
+      // Despawn when fully off screen
+      if (bike.direction === 1 && bike.x > VIRTUAL_WIDTH + 60) bike.active = false;
+      if (bike.direction === -1 && bike.x < -60) bike.active = false;
+    }
+
+    function slapBike() {
+      initAudio();
+      playSlapSound(1.3);
+      bike.isWheelie = false; 
+      bike.isStopped = true; // Complete stop!
+      bike.slapTimer = 150; // Stops for 2.5 seconds on two wheels before resuming
+    }
+
+    function updateBoyState() {
+      if (totalSlaps >= 10) {
+        setBajaSound(false);
+        return;
+      }
+
+      if (boy.isJumping) {
+        boy.y += boy.jumpVy;
+        boy.jumpVy += 0.4;
+        boy.x += boy.direction * 3.5;
+
+        if (boy.x < 10) boy.x = 10;
+        if (boy.x > VIRTUAL_WIDTH - boy.width - 10) boy.x = VIRTUAL_WIDTH - boy.width - 10;
+
+        if (boy.y >= boy.groundY) {
+          boy.y = boy.groundY;
+          boy.isJumping = false;
+        }
+        setBajaSound(true);
+      }
+      else if (boy.isSlapped) {
+        boy.slapTimer--;
+        setBajaSound(false);
+        if (boy.slapTimer <= 0) boy.isSlapped = false;
+      } 
+      else {
+        boy.x += boy.speed * boy.direction;
+        if (boy.x > VIRTUAL_WIDTH - boy.width - 10) boy.direction = -1;
+        else if (boy.x < 10) boy.direction = 1;
+        setBajaSound(true);
+      }
+
+      if (boy.slapTextTimer > 0) boy.slapTextTimer--;
+      if (boy.angryTextTimer > 0) boy.angryTextTimer--;
+    }
+
+    function slapBoy() {
+      initAudio();
+      if (totalSlaps < 10) totalSlaps++;
+
+      if (boy.isSlapped) {
+        boy.slapCount++;
+        if (boy.slapCount >= 3) {
+          boy.slapCount = 0;
+          boy.isSlapped = false;
+          boy.isJumping = true;
+          boy.jumpVy = -6;
+          boy.direction = (boy.x > VIRTUAL_WIDTH / 2) ? -1 : 1;
+          
+          // Random angry texts including "Mujhe fark ni parhta!"
+          const textOptions = ["Mujhe fark ni parhta!", "!#@?!!", "Ouch!!", "BAJA ZINDABAD!"];
+          boy.currentAngryText = textOptions[Math.floor(Math.random() * textOptions.length)];
+          boy.angryTextTimer = 80;
+
+          playSlapSound(1.5);
+          return;
+        }
+      } else {
+        boy.slapCount = 1;
+      }
+
+      boy.isSlapped = true;
+      boy.slapTimer = 75;
+      boy.slapTextTimer = 45;
+      playSlapSound(1);
+    }
+
+    // Drawing Functions
+    function drawPixelCloud(startX, startY) {
+      ctx.fillStyle = COLORS.CLOUD;
+      ctx.fillRect(startX + 8, startY, 16, 8);
+      ctx.fillRect(startX + 4, startY + 4, 24, 8);
+      ctx.fillRect(startX, startY + 8, 32, 8);
+    }
+
+    function drawGround() {
+      ctx.fillStyle = COLORS.BUSH_GREEN;
+      ctx.fillRect(0, VIRTUAL_HEIGHT - 16, VIRTUAL_WIDTH, 16);
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(0, VIRTUAL_HEIGHT - 16, VIRTUAL_WIDTH, 2);
+    }
+
+    function generateEmblemTexture(width, height) {
+      const offscreen = document.createElement('canvas');
+      offscreen.width = width;
+      offscreen.height = height;
+      const oCtx = offscreen.getContext('2d');
+      oCtx.imageSmoothingEnabled = false;
+
+      const centerX = width / 2;
+      const centerY = height / 2;
+      const radius = height * 0.28;
+
+      oCtx.fillStyle = COLORS.WHITE;
+      oCtx.beginPath();
+      oCtx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+      oCtx.fill();
+
+      oCtx.fillStyle = COLORS.DARK_GREEN;
+      oCtx.beginPath();
+      oCtx.arc(centerX + (radius * 0.35), centerY - (radius * 0.35), radius * 0.85, 0, Math.PI * 2);
+      oCtx.fill();
+
+      oCtx.fillStyle = COLORS.WHITE;
+      drawStar(oCtx, centerX + (radius * 0.45), centerY - (radius * 0.45), 5, radius * 0.4, radius * 0.18);
+      return offscreen;
+    }
+
+    function drawStar(context, cx, cy, spikes, outerRadius, innerRadius) {
+      let rot = Math.PI / 2 * 3;
+      let x = cx, y = cy;
+      const step = Math.PI / spikes;
+
+      context.beginPath();
+      context.moveTo(cx, cy - outerRadius);
+      for (let i = 0; i < spikes; i++) {
+        x = cx + Math.cos(rot) * outerRadius;
+        y = cy + Math.sin(rot) * outerRadius;
+        context.lineTo(x, y);
+        rot += step;
+        x = cx + Math.cos(rot) * innerRadius;
+        y = cy + Math.sin(rot) * innerRadius;
+        context.lineTo(x, y);
+        rot += step;
+      }
+      context.lineTo(cx, cy - outerRadius);
+      context.closePath();
+      context.fill();
+    }
+
+    const emblemCanvas = generateEmblemTexture(120, 80);
+
+    function drawWavingFlag(time) {
+      const flagX = 50, flagY = 25;
+      const flagWidth = 230, flagHeight = 90;
+      const whiteWidth = Math.floor(flagWidth * 0.25);
+      const greenWidth = flagWidth - whiteWidth;
+
+      ctx.fillStyle = COLORS.POLE;
+      ctx.fillRect(flagX - 6, flagY - 10, 6, VIRTUAL_HEIGHT - flagY);
+      ctx.fillStyle = '#F8D800';
+      ctx.fillRect(flagX - 8, flagY - 14, 10, 4);
+
+      const sliceWidth = 2;
+      for (let x = 0; x < flagWidth; x += sliceWidth) {
+        const waveOffset = Math.sin((x * 0.05) - (time * 0.08)) * (3 + (x * 0.03));
+        const currentY = flagY + waveOffset;
+
+        if (x < whiteWidth) {
+          ctx.fillStyle = COLORS.WHITE;
+          ctx.fillRect(flagX + x, currentY, sliceWidth, flagHeight);
+        } else {
+          ctx.fillStyle = COLORS.DARK_GREEN;
+          ctx.fillRect(flagX + x, currentY, sliceWidth, flagHeight);
+
+          const greenX = x - whiteWidth;
+          const emblemSliceX = Math.floor((greenX / greenWidth) * emblemCanvas.width);
+
+          ctx.drawImage(
+            emblemCanvas,
+            emblemSliceX, 0, sliceWidth, emblemCanvas.height,
+            flagX + x, currentY + (flagHeight * 0.1), sliceWidth, flagHeight * 0.8
+          );
+        }
+
+        if (Math.cos((x * 0.05) - (time * 0.08)) > 0.6) {
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.15)';
+          ctx.fillRect(flagX + x, currentY, sliceWidth, flagHeight);
+        }
+      }
+    }
+
+    function drawBajaBoy() {
+      const bx = Math.floor(boy.x);
+      const by = Math.floor(boy.y);
+      const w = boy.width;
+      const h = boy.height;
+
+      const legOffset = (!boy.isSlapped && Math.floor(animationTime / 8) % 2 === 0) ? 2 : 0;
+
+      ctx.fillStyle = '#683800';
+      ctx.fillRect(bx + 2, by + h - 4 + legOffset, 8, 4);
+      ctx.fillRect(bx + w - 10, by + h - 4 - legOffset, 8, 4);
+
+      ctx.fillStyle = (boy.angryTextTimer > 0) ? COLORS.BOY_ANGRY_SHIRT : COLORS.BOY_SHIRT;
+      ctx.fillRect(bx + 4, by + 8, w - 8, h - 8);
+      ctx.fillRect(bx + 2, by + 12, w - 4, h - 14);
+
+      ctx.fillStyle = COLORS.BOY_SKIN;
+      ctx.fillRect(bx + 4, by, w - 8, 12);
+      ctx.fillRect(bx + 2, by + 2, w - 4, 8);
+
+      if (totalSlaps >= 10) {
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(bx + 6, by + 4, 2, 2);
+        ctx.fillRect(bx + w - 8, by + 4, 2, 2);
+        
+        ctx.fillStyle = COLORS.WHITE;
+        ctx.fillRect(bx + w, by, 2, 12);
+        ctx.fillStyle = COLORS.DARK_GREEN;
+        ctx.fillRect(bx + w + 2, by, 8, 6);
+      }
+      else if (boy.isSlapped) {
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(bx + 6, by + 4, 3, 1);
+        ctx.fillRect(bx + 7, by + 3, 1, 3);
+        ctx.fillRect(bx + w - 9, by + 4, 3, 1);
+        ctx.fillRect(bx + w - 8, by + 3, 1, 3);
+        ctx.fillRect(bx + (w / 2) - 2, by + 8, 4, 3);
+      } else {
+        ctx.fillStyle = '#000000';
+        const eyeX = (boy.direction === 1) ? bx + w - 10 : bx + 6;
+        ctx.fillRect(eyeX, by + 3, 3, 4);
+
+        const hornX = (boy.direction === 1) ? bx + w - 2 : bx - 10;
+        ctx.fillStyle = COLORS.BAJA_PLASTIC;
+        ctx.fillRect(hornX, by + 5, 10, 4);
+        ctx.fillRect((boy.direction === 1) ? hornX + 7 : hornX - 3, by + 3, 4, 8);
+
+        if (Math.floor(animationTime / 4) % 2 === 0) {
+          ctx.fillStyle = '#F8D800';
+          ctx.fillRect((boy.direction === 1) ? hornX + 12 : hornX - 7, by + 2, 2, 2);
+          ctx.fillRect(((boy.direction === 1) ? hornX + 12 : hornX - 7) + (boy.direction * 3), by + 7, 2, 2);
+          ctx.fillRect((boy.direction === 1) ? hornX + 12 : hornX - 7, by + 10, 2, 2);
+        }
+      }
+
+      if (boy.angryTextTimer > 0) {
+        ctx.fillStyle = '#FF0000';
+        ctx.font = '7px "Press Start 2P"';
+        ctx.fillText(boy.currentAngryText, bx - 20, by - 8);
+      } else if (boy.slapTextTimer > 0) {
+        ctx.fillStyle = '#F8D800';
+        ctx.font = '9px "Press Start 2P"';
+        ctx.fillText(`SLAP x${boy.slapCount}`, bx - 8, by - 6);
+      }
+    }
+
+    // Clear High-Visibility Masair CD70 Bike
+    function drawMasairBike() {
+      if (!bike.active) return;
+
+      const bx = Math.floor(bike.x);
+      const by = Math.floor(bike.y);
+
+      // --- TEXT ABOVE BIKER ---
+      ctx.fillStyle = '#F8D800';
+      ctx.font = '7px "Press Start 2P"';
+      ctx.fillText("masair! is here", bx - 10, by - 18);
+
+      ctx.save();
+      const isFacingRight = (bike.direction === 1);
+
+      ctx.translate(bx + (bike.width / 2), by + bike.height);
+
+      if (!isFacingRight) {
+        ctx.scale(-1, 1);
+      }
+
+      // Wheelie angle rotation (-25 deg)
+      if (bike.isWheelie) {
+        ctx.rotate(-25 * Math.PI / 180);
+      }
+
+      ctx.translate(-bike.width / 2, -bike.height);
+
+      // --- WHEELS ---
+      // Rear Wheel
+      ctx.fillStyle = '#000000';
+      ctx.beginPath();
+      ctx.arc(8, 20, 7, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#FFFFFF';
+      ctx.beginPath();
+      ctx.arc(8, 20, 3, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Front Wheel
+      ctx.fillStyle = '#000000';
+      ctx.beginPath();
+      ctx.arc(44, 20, 7, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#FFFFFF';
+      ctx.beginPath();
+      ctx.arc(44, 20, 3, 0, Math.PI * 2);
+      ctx.fill();
+
+      // --- CHASSIS & ENGINE ---
+      ctx.fillStyle = '#222222';
+      ctx.fillRect(8, 16, 32, 4); // Frame
+      ctx.fillRect(18, 14, 12, 8); // Engine
+      ctx.fillStyle = '#DDDDDD';
+      ctx.fillRect(10, 20, 24, 3); // Chrome Exhaust Silencer
+
+      // --- RED FUEL TANK (CD70) ---
+      ctx.fillStyle = '#E52521';
+      ctx.fillRect(20, 8, 16, 7);
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(23, 10, 10, 2);
+
+      // Seat & Handlebars
+      ctx.fillStyle = '#111111';
+      ctx.fillRect(8, 8, 12, 5); // Seat
+      ctx.fillStyle = '#888888';
+      ctx.fillRect(36, 2, 3, 16); // Front Fork
+      ctx.fillRect(34, 0, 8, 3);  // Handlebars
+
+      // --- MASAIR RIDER ---
+      ctx.fillStyle = '#003366';
+      ctx.fillRect(10, 10, 10, 9); // Legs on bike seat
+      ctx.fillStyle = '#00A800';
+      ctx.fillRect(12, 0, 10, 11); // Green 14th Aug Shirt
+
+      // Arms extending
+      ctx.fillStyle = COLORS.BOY_SKIN;
+      ctx.fillRect(18, 3, 14, 3);
+
+      // Head
+      ctx.fillRect(12, -8, 8, 8);
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(17, -6, 2, 3); // Eyes
+
+      ctx.restore();
+    }
+
+    /** Draws the Slap Meter HUD & Win Banner */
+    function drawHUD() {
+      // Slap Meter Bar
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(5, 5, 110, 12);
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = '6px "Press Start 2P"';
+      ctx.fillText(`SLAP: ${totalSlaps}/10`, 8, 13);
+
+      // Win Banner overlay
+      if (totalSlaps >= 10) {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
+        ctx.fillRect(20, 80, 280, 40);
+        ctx.strokeStyle = '#F8D800';
+        ctx.strokeRect(22, 82, 276, 36);
+
+        ctx.fillStyle = '#F8D800';
+        ctx.font = '9px "Press Start 2P"';
+        ctx.fillText("BAJA SILENCED!", 85, 98);
+        ctx.fillStyle = '#00FF66';
+        ctx.font = '7px "Press Start 2P"';
+        ctx.fillText("PEACE RESTORED THIS 14th AUG!", 42, 110);
+      }
+    }
+
+    // Input Handling
+    function getVirtualCoords(clientX, clientY) {
+      const rect = canvas.getBoundingClientRect();
+      return {
+        x: (clientX - rect.left) * (VIRTUAL_WIDTH / rect.width),
+        y: (clientY - rect.top) * (VIRTUAL_HEIGHT / rect.height)
+      };
+    }
+
+    function isOverBoy(vx, vy) {
+      const hitMargin = 8;
+      return (
+        vx >= boy.x - hitMargin &&
+        vx <= boy.x + boy.width + hitMargin &&
+        vy >= boy.y - hitMargin &&
+        vy <= boy.y + boy.height + hitMargin
+      );
+    }
+
+    function isOverBike(vx, vy) {
+      if (!bike.active) return false;
+      const hitMargin = 12;
+      return (
+        vx >= bike.x - hitMargin &&
+        vx <= bike.x + bike.width + hitMargin &&
+        vy >= bike.y - hitMargin &&
+        vy <= bike.y + bike.height + hitMargin
+      );
+    }
+
+    canvas.addEventListener('mousemove', (e) => {
+      const pos = getVirtualCoords(e.clientX, e.clientY);
+      if (isOverBoy(pos.x, pos.y) || isOverBike(pos.x, pos.y)) canvas.classList.add('hover-boy');
+      else canvas.classList.remove('hover-boy');
+    });
+
     function handleInteraction(clientX, clientY) {
       const pos = getVirtualCoords(clientX, clientY);
       if (isOverBike(pos.x, pos.y)) {
