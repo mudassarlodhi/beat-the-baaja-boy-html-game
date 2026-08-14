@@ -429,6 +429,7 @@ function updateBikeState() {
 function slapBike() {
   if (!gameStarted || gameOver || bike.isSlapped) return;
   initAudio();
+  totalSlaps++;
   playSlapSound(1.3);
 
   bike.isSlapped = true;
